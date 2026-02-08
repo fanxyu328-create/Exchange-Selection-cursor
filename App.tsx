@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { User, School, Semester } from './types';
-import { db } from './services/mockDb';
+import { db, isSupabase } from './services/db';
 import { SchoolTable } from './components/SchoolTable';
 import { StatusBoard } from './components/StatusBoard';
 import { SelectionPanel } from './components/SelectionPanel';
@@ -17,46 +17,45 @@ const App: React.FC = () => {
   const [currentRound, setCurrentRound] = useState<1 | 2>(1);
   const [activeRank, setActiveRank] = useState<number | null>(null);
   
-  // Selection UI State
   const [selectedSchoolId, setSelectedSchoolId] = useState<number | null>(null);
 
-  // Helper to refresh data from DB
-  const refreshAppState = () => {
-    setUsers(db.getUsers());
-    setSchools(db.getSchools());
-    setCurrentRound(db.getCurrentRound());
-    setActiveRank(db.getActiveRank());
-
-    // Update Current User object if their status/selection changed
+  const refreshAppState = useCallback(async () => {
+    const [usersData, schoolsData, round, rank] = await Promise.all([
+      db.getUsers(),
+      db.getSchools(),
+      db.getCurrentRound(),
+      db.getActiveRank(),
+    ]);
+    setUsers(usersData);
+    setSchools(schoolsData);
+    setCurrentRound(round);
+    setActiveRank(rank);
     if (currentUser && !currentUser.isAdmin) {
-      const updatedMe = db.getUsers().find(u => u.id === currentUser.id);
-      if (updatedMe) {
-         setCurrentUser(updatedMe); 
-      }
+      const updatedMe = usersData.find((u) => u.id === currentUser.id);
+      if (updatedMe) setCurrentUser(updatedMe);
     }
-  };
-
-  // Poll for updates (Simulate real-time)
-  useEffect(() => {
-    const fetchData = () => {
-      // 1. Sync with storage (in case Admin updated in another tab)
-      db.sync(); 
-      
-      // 2. Ensure local state logic is correct (e.g., advancing turns)
-      db.refreshStatus(); 
-      
-      // 3. Update React State
-      refreshAppState();
-    };
-
-    fetchData(); // Initial load
-    const interval = setInterval(fetchData, 1000); // Polling every 1s
-    return () => clearInterval(interval);
   }, [currentUser?.id, currentUser?.isAdmin]);
 
-  const handleLogin = (e: React.FormEvent) => {
+  useEffect(() => {
+    let unsubscribe: (() => void) | undefined;
+    if (isSupabase && 'subscribe' in db && typeof db.subscribe === 'function') {
+      refreshAppState();
+      unsubscribe = db.subscribe(() => refreshAppState());
+      return () => unsubscribe?.();
+    }
+    const tick = async () => {
+      await db.sync();
+      await db.refreshStatus();
+      await refreshAppState();
+    };
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [refreshAppState]);
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    const user = db.login(loginInput);
+    const user = await db.login(loginInput);
     if (user) {
       setCurrentUser(user);
       setLoginError('');
@@ -66,37 +65,35 @@ const App: React.FC = () => {
   };
 
   const handleSelectSchool = (schoolId: number) => {
-    // Can only click if it's my turn
     if (activeRank === currentUser?.rank) {
       setSelectedSchoolId(schoolId === selectedSchoolId ? null : schoolId);
     }
   };
 
-  const handleSubmitSelection = (schoolId: number, semester: Semester) => {
+  const handleSubmitSelection = async (schoolId: number, semester: Semester) => {
     if (!currentUser) return;
-    const result = db.submitSelection(currentUser.id, schoolId, semester);
+    const result = await db.submitSelection(currentUser.id, schoolId, semester);
     if (result.success) {
       setSelectedSchoolId(null);
-      refreshAppState(); // Immediate update
+      await refreshAppState();
     } else {
       alert(result.message);
     }
   };
 
-  const handleSkip = () => {
+  const handleSkip = async () => {
     if (!currentUser) return;
     if (confirm("Are you sure you want to skip your turn for this round? This decision is final.")) {
-       const result = db.skipTurn(currentUser.id);
-       if (result.success) {
-         setSelectedSchoolId(null);
-         refreshAppState(); // Immediate update so UI reflects change instantly
-       } else {
-         alert(result.message || "Failed to skip turn. It might not be your turn anymore.");
-       }
+      const result = await db.skipTurn(currentUser.id);
+      if (result.success) {
+        setSelectedSchoolId(null);
+        await refreshAppState();
+      } else {
+        alert(result.message || "Failed to skip turn. It might not be your turn anymore.");
+      }
     }
-  }
+  };
 
-  // Login Screen
   if (!currentUser) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 to-blue-100 p-4">
@@ -146,7 +143,6 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-32">
-      {/* Header */}
       <header className="bg-white border-b sticky top-0 z-30 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -173,14 +169,12 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
         {currentUser.isAdmin ? (
           <AdminPanel />
         ) : (
           <>
-            {/* Status Board */}
             <StatusBoard 
               users={users} 
               schools={schools}
@@ -189,7 +183,6 @@ const App: React.FC = () => {
               currentRound={currentRound} 
             />
 
-            {/* School List */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-gray-800">Available Universities</h2>
@@ -209,7 +202,6 @@ const App: React.FC = () => {
         )}
       </main>
 
-      {/* Selection Control Panel (Sticky Bottom) - Only show if not Admin */}
       {!currentUser.isAdmin && (
         <SelectionPanel 
           selectedSchool={schools.find(s => s.id === selectedSchoolId) || null}

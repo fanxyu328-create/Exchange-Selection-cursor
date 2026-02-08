@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { db } from '../services/mockDb';
+import { db } from '../services/db';
 import { RefreshCw, CheckCircle, AlertTriangle, Download, Upload } from 'lucide-react';
 import {
   downloadUsersCsvTemplate,
@@ -83,7 +83,7 @@ export const AdminPanel: React.FC = () => {
     reader.readAsText(file, 'UTF-8');
   };
 
-  const handleReset = () => {
+  const handleReset = async () => {
     try {
       const users = JSON.parse(usersJson);
       const schools = JSON.parse(schoolsJson);
@@ -92,17 +92,13 @@ export const AdminPanel: React.FC = () => {
         throw new Error("Data must be arrays.");
       }
 
-      // Basic validation of required fields
       if (users.length > 0 && (!users[0].name || !users[0].rank)) {
          throw new Error("Users JSON missing name or rank.");
       }
 
-      db.resetData(users, schools);
+      await db.resetData(users, schools);
       setStatusMsg({ type: 'success', text: 'Database reset successfully! System recalculated active rank.' });
-      
-      // Clear success message after 3 seconds
       setTimeout(() => setStatusMsg({ type: null, text: '' }), 3000);
-
     } catch (e: any) {
       setStatusMsg({ type: 'error', text: `Invalid JSON: ${e.message}` });
     }
