@@ -1,0 +1,5 @@
+{
+  "name": "ExchangeSelect",
+  "description": "A class-based exchange student selection system with strict ranking and slot management logic.",
+  "requestFramePermissions": []
+}
