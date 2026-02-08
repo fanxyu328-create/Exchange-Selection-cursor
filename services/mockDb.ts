@@ -258,6 +258,15 @@ export class MockService {
       return { success: false, message: `It is currently Rank ${activeRank}'s turn.` };
     }
 
+    // 2.5. Round 2: 两轮不能选择同一学期
+    if (this.state.currentRound === 2 && user.selectedRound1 && user.selectedRound1.semester === semester) {
+      return { success: false, message: '两轮不能选择同一学期，请选择另一学期。' };
+    }
+    // 2.6. Round 2: 两轮不能选择同一学校
+    if (this.state.currentRound === 2 && user.selectedRound1 && user.selectedRound1.schoolId === schoolId) {
+      return { success: false, message: '两轮不能选择同一学校，请选择其他学校。' };
+    }
+
     // 3. Validate School Capacity
     const schoolIndex = this.state.schools.findIndex(s => s.id === schoolId);
     if (schoolIndex === -1) return { success: false, message: 'School not found' };

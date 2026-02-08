@@ -254,6 +254,15 @@ export class SupabaseDb {
       return { success: false, message: `It is currently Rank ${activeRank}'s turn.` };
     }
 
+    // Round 2: 两轮不能选择同一学期
+    if (round === 2 && user.selectedRound1 && user.selectedRound1.semester === semester) {
+      return { success: false, message: '两轮不能选择同一学期，请选择另一学期。' };
+    }
+    // Round 2: 两轮不能选择同一学校
+    if (round === 2 && user.selectedRound1 && user.selectedRound1.schoolId === schoolId) {
+      return { success: false, message: '两轮不能选择同一学校，请选择其他学校。' };
+    }
+
     const schoolIndex = schools.findIndex((s) => s.id === schoolId);
     if (schoolIndex === -1) return { success: false, message: 'School not found' };
     const school = { ...schools[schoolIndex] };

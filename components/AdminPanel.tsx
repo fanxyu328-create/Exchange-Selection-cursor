@@ -2,10 +2,12 @@ import React, { useState, useRef, useEffect } from 'react';
 import { db } from '../services/db';
 import { RefreshCw, CheckCircle, AlertTriangle, Download, Upload } from 'lucide-react';
 import {
-  downloadUsersCsvTemplate,
-  downloadSchoolsCsvTemplate,
+  downloadUsersCsvFromData,
+  downloadSchoolsCsvFromData,
   parseUsersCsv,
   parseSchoolsCsv,
+  type UserCsvRow,
+  type SchoolCsvRow,
 } from '../utils/csv';
 
 /** 从后端用户列表转为管理员可编辑的 JSON 字段（仅 id, name, rank, needsDoubleSemester） */
@@ -45,8 +47,36 @@ export const AdminPanel: React.FC = () => {
     return () => { cancelled = true; };
   }, []);
 
-  const handleDownloadUsersTemplate = () => downloadUsersCsvTemplate();
-  const handleDownloadSchoolsTemplate = () => downloadSchoolsCsvTemplate();
+  const handleDownloadUsersTemplate = async () => {
+    try {
+      const users = await db.getUsers();
+      const rows: UserCsvRow[] = users.map((u) => ({
+        id: u.id,
+        name: u.name,
+        rank: u.rank,
+        needsDoubleSemester: u.needsDoubleSemester,
+      }));
+      downloadUsersCsvFromData(rows);
+    } catch (e: any) {
+      setStatusMsg({ type: 'error', text: e.message || '拉取用户数据失败' });
+    }
+  };
+  const handleDownloadSchoolsTemplate = async () => {
+    try {
+      const schools = await db.getSchools();
+      const rows: SchoolCsvRow[] = schools.map((s) => ({
+        id: s.id,
+        name: s.name,
+        country: s.country,
+        slotsFall: s.slotsFall,
+        slotsSpring: s.slotsSpring,
+        slotsFlexible: s.slotsFlexible,
+      }));
+      downloadSchoolsCsvFromData(rows);
+    } catch (e: any) {
+      setStatusMsg({ type: 'error', text: e.message || '拉取学校数据失败' });
+    }
+  };
 
   const handleUsersCsvUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

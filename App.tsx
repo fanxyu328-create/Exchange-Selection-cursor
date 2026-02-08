@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { User, School, Semester } from './types';
+import { User, School, Semester, UserStatus } from './types';
 import { db, isSupabase } from './services/db';
 import { SchoolTable } from './components/SchoolTable';
 import { StatusBoard } from './components/StatusBoard';
@@ -109,15 +109,68 @@ const App: React.FC = () => {
   };
 
   if (!currentUser) {
+    const activeUser = users.find((u) => u.rank === activeRank);
+    const sortedUsers = [...users].sort((a, b) => a.rank - b.rank);
+    const round1Text = (u: User) => {
+      if (u.selectedRound1) {
+        const name = schools.find((s) => s.id === u.selectedRound1!.schoolId)?.name;
+        return name ? `${name} - ${u.selectedRound1!.semester}` : '-';
+      }
+      return u.status === UserStatus.Skipped ? 'Skip' : '-';
+    };
+    const round2Text = (u: User) => {
+      if (u.selectedRound2) {
+        const name = schools.find((s) => s.id === u.selectedRound2!.schoolId)?.name;
+        return name ? `${name} - ${u.selectedRound2!.semester}` : '-';
+      }
+      if (!u.needsDoubleSemester || !u.selectedRound1) return 'N/A';
+      return u.status === UserStatus.Skipped ? 'Skip' : '-';
+    };
+
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 to-blue-100 p-4">
-        <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-white/50 backdrop-blur-sm">
-          <div className="text-center mb-8">
+        <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-2xl border border-white/50 backdrop-blur-sm">
+          <div className="text-center mb-6">
             <div className="bg-indigo-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-indigo-600">
                <LogIn size={32} />
             </div>
             <h1 className="text-2xl font-bold text-gray-900">Student Exchange Portal</h1>
             <p className="text-gray-500 mt-2">Login to select your destination</p>
+          </div>
+
+          {/* 当前选校进度 */}
+          <div className="mb-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
+            <p className="text-sm font-semibold text-gray-700 mb-2">
+              Current Turn: {activeRank != null && activeUser
+                ? `Rank ${activeRank} - ${activeUser.name}`
+                : users.length === 0
+                  ? 'Loading…'
+                  : '—'}
+            </p>
+            {sortedUsers.length > 0 && (
+              <div className="overflow-x-auto -mx-1">
+                <table className="w-full text-xs border-collapse table-fixed">
+                  <thead>
+                    <tr className="border-b border-gray-200 text-gray-600 font-medium">
+                      <th className="text-left py-2 px-2">Rank</th>
+                      <th className="text-left py-2 px-2">Name</th>
+                      <th className="text-left py-2 px-2 w-[30%]">Round 1</th>
+                      <th className="text-left py-2 px-2 w-[30%]">Round 2</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedUsers.map((u) => (
+                      <tr key={u.id} className="border-b border-gray-100">
+                        <td className="py-1.5 px-2 font-medium">{u.rank}</td>
+                        <td className="py-1.5 px-2">{u.name}</td>
+                        <td className="py-1.5 px-2 text-gray-600 w-[30%]">{round1Text(u)}</td>
+                        <td className="py-1.5 px-2 text-gray-600 w-[30%]">{round2Text(u)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
           
           <form onSubmit={handleLogin} className="space-y-4">
@@ -210,6 +263,7 @@ const App: React.FC = () => {
                 selectedSchoolId={selectedSchoolId}
                 onSelectSchool={handleSelectSchool}
                 disabled={!isMyTurn}
+                round1SchoolId={currentUser?.selectedRound1?.schoolId ?? null}
               />
             </div>
           </>
@@ -222,6 +276,8 @@ const App: React.FC = () => {
           onSubmit={handleSubmitSelection}
           onSkip={handleSkip}
           disabled={!isMyTurn}
+          currentRound={currentRound}
+          round1Semester={currentUser?.selectedRound1?.semester ?? null}
         />
       )}
     </div>

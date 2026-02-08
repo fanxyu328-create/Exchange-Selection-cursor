@@ -30,6 +30,15 @@ function parseBool(val: string): boolean {
   return v === 'true' || v === '1' || v === 'yes' || v === '是';
 }
 
+/** CSV 单元格转义：含逗号、引号、换行时用双引号包裹并转义内部引号 */
+function escapeCsvCell(val: unknown): string {
+  const s = val === null || val === undefined ? '' : String(val);
+  if (s.includes(',') || s.includes('"') || s.includes('\n') || s.includes('\r')) {
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
+  return s;
+}
+
 // --- Users CSV ---
 
 const USERS_CSV_HEADER = 'id,name,rank,needsDoubleSemester';
@@ -44,6 +53,22 @@ export const USERS_CSV_TEMPLATE = [
 
 export function downloadUsersCsvTemplate(): void {
   const blob = new Blob(['\uFEFF' + USERS_CSV_TEMPLATE], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'users_template.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/** 用当前数据生成 Users CSV 并下载（填充后端实时表数据） */
+export function downloadUsersCsvFromData(rows: UserCsvRow[]): void {
+  const lines = [USERS_CSV_HEADER];
+  for (const r of rows) {
+    lines.push([r.id, escapeCsvCell(r.name), r.rank, r.needsDoubleSemester].join(','));
+  }
+  const content = UTF8_BOM + lines.join('\n');
+  const blob = new Blob([content], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -100,6 +125,29 @@ export const SCHOOLS_CSV_TEMPLATE = [
 
 export function downloadSchoolsCsvTemplate(): void {
   const blob = new Blob(['\uFEFF' + SCHOOLS_CSV_TEMPLATE], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'schools_template.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/** 用当前数据生成 Schools CSV 并下载（填充后端实时表数据） */
+export function downloadSchoolsCsvFromData(rows: SchoolCsvRow[]): void {
+  const lines = [SCHOOLS_CSV_HEADER];
+  for (const r of rows) {
+    lines.push([
+      r.id,
+      escapeCsvCell(r.name),
+      escapeCsvCell(r.country),
+      r.slotsFall,
+      r.slotsSpring,
+      r.slotsFlexible,
+    ].join(','));
+  }
+  const content = UTF8_BOM + lines.join('\n');
+  const blob = new Blob([content], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

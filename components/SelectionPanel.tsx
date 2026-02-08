@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { School, Semester } from '../types';
 import { Calendar, Check } from 'lucide-react';
 
@@ -7,10 +7,28 @@ interface SelectionPanelProps {
   onSubmit: (schoolId: number, semester: Semester) => void;
   onSkip: () => void;
   disabled: boolean;
+  /** 当前轮次；第 2 轮时与 round1Semester 一起限制不能选同一学期 */
+  currentRound?: 1 | 2;
+  /** 第 1 轮已选学期；第 2 轮时该学期选项禁用 */
+  round1Semester?: Semester | null;
 }
 
-export const SelectionPanel: React.FC<SelectionPanelProps> = ({ selectedSchool, onSubmit, onSkip, disabled }) => {
+export const SelectionPanel: React.FC<SelectionPanelProps> = ({
+  selectedSchool,
+  onSubmit,
+  onSkip,
+  disabled,
+  currentRound = 1,
+  round1Semester = null,
+}) => {
   const [semester, setSemester] = useState<Semester>(Semester.Fall);
+
+  // 第 2 轮时默认选与第 1 轮不同的学期
+  useEffect(() => {
+    if (currentRound === 2 && round1Semester != null) {
+      setSemester(round1Semester === Semester.Fall ? Semester.Spring : Semester.Fall);
+    }
+  }, [currentRound, round1Semester]);
 
   if (!selectedSchool) {
     return (
@@ -30,8 +48,13 @@ export const SelectionPanel: React.FC<SelectionPanelProps> = ({ selectedSchool, 
     );
   }
 
-  const canSelectFall = selectedSchool.slotsFall > 0 || selectedSchool.slotsFlexible > 0;
-  const canSelectSpring = selectedSchool.slotsSpring > 0 || selectedSchool.slotsFlexible > 0;
+  const sameSemesterForbidden = currentRound === 2 && round1Semester != null;
+  const canSelectFall =
+    (selectedSchool.slotsFall > 0 || selectedSchool.slotsFlexible > 0) &&
+    (!sameSemesterForbidden || round1Semester !== Semester.Fall);
+  const canSelectSpring =
+    (selectedSchool.slotsSpring > 0 || selectedSchool.slotsFlexible > 0) &&
+    (!sameSemesterForbidden || round1Semester !== Semester.Spring);
 
   const handleSubmit = () => {
     if (selectedSchool) {

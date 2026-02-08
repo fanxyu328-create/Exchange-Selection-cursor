@@ -7,13 +7,16 @@ interface SchoolTableProps {
   selectedSchoolId?: number | null;
   onSelectSchool: (id: number) => void;
   disabled: boolean;
+  /** 第 1 轮已选学校 ID；第 2 轮时该学校不可再选 */
+  round1SchoolId?: number | null;
 }
 
 export const SchoolTable: React.FC<SchoolTableProps> = ({ 
   schools, 
   selectedSchoolId, 
   onSelectSchool,
-  disabled 
+  disabled,
+  round1SchoolId = null,
 }) => {
   return (
     <div className="bg-white rounded-lg shadow overflow-hidden border border-gray-200">
@@ -43,15 +46,17 @@ export const SchoolTable: React.FC<SchoolTableProps> = ({
               const total = school.slotsFall + school.slotsSpring + school.slotsFlexible;
               const isSelected = selectedSchoolId === school.id;
               const isFullyBooked = total === 0;
+              const isDisabledRound2SameSchool = round1SchoolId != null && school.id === round1SchoolId;
+              const isRowDisabled = disabled || isFullyBooked || isDisabledRound2SameSchool;
               
               return (
                 <tr 
                   key={school.id} 
-                  onClick={() => !disabled && !isFullyBooked && onSelectSchool(school.id)}
+                  onClick={() => !isRowDisabled && onSelectSchool(school.id)}
                   className={`
                     transition-colors cursor-pointer
                     ${isSelected ? 'bg-indigo-50' : 'hover:bg-gray-50'}
-                    ${(disabled || isFullyBooked) ? 'opacity-60 cursor-not-allowed bg-gray-50/50' : ''}
+                    ${isRowDisabled ? 'opacity-60 cursor-not-allowed bg-gray-50/50' : ''}
                   `}
                 >
                   <td className="px-6 py-4 whitespace-nowrap">

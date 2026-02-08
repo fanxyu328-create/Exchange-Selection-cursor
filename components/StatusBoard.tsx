@@ -92,10 +92,13 @@ export const StatusBoard: React.FC<StatusBoardProps> = ({ users, schools, curren
              const isCompleted = user.status === UserStatus.Completed || user.status === UserStatus.Skipped;
              const isMe = user.id === currentUser.id;
              
-             // Determine selection display based on current round context
+             // Determine selection display: "学校名 - 学期"
              const selection = currentRound === 1 ? user.selectedRound1 : user.selectedRound2;
-             const schoolName = selection 
-               ? schools.find(s => s.id === selection.schoolId)?.name 
+             const selectionLabel = selection
+               ? (() => {
+                   const name = schools.find(s => s.id === selection.schoolId)?.name;
+                   return name ? `${name} - ${selection.semester}` : null;
+                 })()
                : null;
 
              return (
@@ -126,10 +129,10 @@ export const StatusBoard: React.FC<StatusBoardProps> = ({ users, schools, curren
                   </div>
                   <div className="text-xs text-gray-500">
                     {user.status}
-                    {selection && schoolName && (
-                      <Tooltip text={schoolName} className="mt-1">
+                    {selection && selectionLabel && (
+                      <Tooltip text={selectionLabel} className="mt-1">
                         <span className="block text-indigo-600 truncate cursor-help hover:text-indigo-800 transition-colors">
-                          Selected: {schoolName}
+                          Selected: {selectionLabel}
                         </span>
                       </Tooltip>
                     )}
