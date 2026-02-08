@@ -219,6 +219,13 @@ export class SupabaseDb {
     }));
 
     const { users: afterRefresh } = computeRefreshStatus(newUsers, 1);
+
+    // 先清空再写入，确保后端与前端完全一致（避免旧数据残留）
+    const { error: errUsers } = await this.client.from('users').delete().gte('id', 0);
+    if (errUsers) throw new Error(`清空 users 失败: ${errUsers.message}`);
+    const { error: errSchools } = await this.client.from('schools').delete().gte('id', 0);
+    if (errSchools) throw new Error(`清空 schools 失败: ${errSchools.message}`);
+
     await this.saveUsers(afterRefresh);
     await this.saveSchools(newSchools);
     await this.setCurrentRound(1);

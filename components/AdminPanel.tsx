@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { db } from '../services/db';
 import { RefreshCw, CheckCircle, AlertTriangle, Download, Upload } from 'lucide-react';
 import {
@@ -8,25 +8,42 @@ import {
   parseSchoolsCsv,
 } from '../utils/csv';
 
-const EXAMPLE_USERS = [
-  { "id": 1, "name": "Alice Chen", "rank": 1, "needsDoubleSemester": true },
-  { "id": 2, "name": "Bob Smith", "rank": 2, "needsDoubleSemester": true },
-  { "id": 3, "name": "Charlie Kim", "rank": 3, "needsDoubleSemester": true },
-  { "id": 4, "name": "David Lee", "rank": 4, "needsDoubleSemester": true }
-];
+/** 从后端用户列表转为管理员可编辑的 JSON 字段（仅 id, name, rank, needsDoubleSemester） */
+function toAdminUsers(users: { id: number; name: string; rank: number; needsDoubleSemester: boolean }[]) {
+  return users.map((u) => ({ id: u.id, name: u.name, rank: u.rank, needsDoubleSemester: u.needsDoubleSemester }));
+}
 
-const EXAMPLE_SCHOOLS = [
-  { "id": 1, "name": "UC Berkeley", "country": "USA", "slotsFall": 1, "slotsSpring": 1, "slotsFlexible": 0 },
-  { "id": 2, "name": "ETH Zurich", "country": "Switzerland", "slotsFall": 2, "slotsSpring": 0, "slotsFlexible": 1 },
-  { "id": 3, "name": "Univ. of Tokyo", "country": "Japan", "slotsFall": 1, "slotsSpring": 1, "slotsFlexible": 1 }
-];
+/** 从后端学校列表转为管理员可编辑的 JSON 字段 */
+function toAdminSchools(schools: { id: number; name: string; country: string; slotsFall: number; slotsSpring: number; slotsFlexible: number }[]) {
+  return schools.map((s) => ({ id: s.id, name: s.name, country: s.country, slotsFall: s.slotsFall, slotsSpring: s.slotsSpring, slotsFlexible: s.slotsFlexible }));
+}
 
 export const AdminPanel: React.FC = () => {
-  const [usersJson, setUsersJson] = useState(JSON.stringify(EXAMPLE_USERS, null, 2));
-  const [schoolsJson, setSchoolsJson] = useState(JSON.stringify(EXAMPLE_SCHOOLS, null, 2));
+  const [usersJson, setUsersJson] = useState('[]');
+  const [schoolsJson, setSchoolsJson] = useState('[]');
   const [statusMsg, setStatusMsg] = useState<{type: 'success' | 'error' | null, text: string}>({ type: null, text: '' });
+  const [loading, setLoading] = useState(true);
   const usersFileRef = useRef<HTMLInputElement>(null);
   const schoolsFileRef = useRef<HTMLInputElement>(null);
+
+  // 进入页面时从后端加载当前 users / schools，填充表单
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const [users, schools] = await Promise.all([db.getUsers(), db.getSchools()]);
+        if (cancelled) return;
+        setUsersJson(JSON.stringify(toAdminUsers(users), null, 2));
+        setSchoolsJson(JSON.stringify(toAdminSchools(schools), null, 2));
+      } catch (e: any) {
+        if (!cancelled) setStatusMsg({ type: 'error', text: e.message || '加载后端数据失败' });
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const handleDownloadUsersTemplate = () => downloadUsersCsvTemplate();
   const handleDownloadSchoolsTemplate = () => downloadSchoolsCsvTemplate();
@@ -100,7 +117,7 @@ export const AdminPanel: React.FC = () => {
       setStatusMsg({ type: 'success', text: 'Database reset successfully! System recalculated active rank.' });
       setTimeout(() => setStatusMsg({ type: null, text: '' }), 3000);
     } catch (e: any) {
-      setStatusMsg({ type: 'error', text: `Invalid JSON: ${e.message}` });
+      setStatusMsg({ type: 'error', text: e.message || '操作失败' });
     }
   };
 
@@ -111,6 +128,9 @@ export const AdminPanel: React.FC = () => {
           <RefreshCw className="text-indigo-600" />
           Admin Data Import
         </h2>
+        {loading && (
+          <span className="text-sm text-gray-500">加载后端数据中…</span>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -150,7 +170,8 @@ export const AdminPanel: React.FC = () => {
           <textarea
             value={usersJson}
             onChange={(e) => setUsersJson(e.target.value)}
-            className="w-full h-64 p-3 font-mono text-xs border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50"
+            disabled={loading}
+            className="w-full h-64 p-3 font-mono text-xs border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed"
           />
         </div>
 
@@ -190,7 +211,8 @@ export const AdminPanel: React.FC = () => {
           <textarea
             value={schoolsJson}
             onChange={(e) => setSchoolsJson(e.target.value)}
-            className="w-full h-64 p-3 font-mono text-xs border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50"
+            disabled={loading}
+            className="w-full h-64 p-3 font-mono text-xs border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed"
           />
         </div>
       </div>

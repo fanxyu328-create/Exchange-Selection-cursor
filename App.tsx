@@ -37,17 +37,31 @@ const App: React.FC = () => {
   }, [currentUser?.id, currentUser?.isAdmin]);
 
   useEffect(() => {
-    let unsubscribe: (() => void) | undefined;
-    if (isSupabase && 'subscribe' in db && typeof db.subscribe === 'function') {
-      refreshAppState();
-      unsubscribe = db.subscribe(() => refreshAppState());
-      return () => unsubscribe?.();
-    }
     const tick = async () => {
-      await db.sync();
-      await db.refreshStatus();
-      await refreshAppState();
+      if (isSupabase) {
+        await refreshAppState();
+      } else {
+        await db.sync();
+        await db.refreshStatus();
+        await refreshAppState();
+      }
     };
+
+    if (isSupabase) {
+      tick();
+      // Realtime：表变化时即时刷新
+      let unsubscribe: (() => void) | undefined;
+      if ('subscribe' in db && typeof db.subscribe === 'function') {
+        unsubscribe = db.subscribe(() => { void refreshAppState(); });
+      }
+      // 轮询兜底：每 2 秒拉一次后端，保证名额和状态一定同步（即使用户未开 Realtime）
+      const interval = setInterval(tick, 2000);
+      return () => {
+        unsubscribe?.();
+        clearInterval(interval);
+      };
+    }
+
     tick();
     const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
