@@ -140,6 +140,9 @@ const App: React.FC = () => {
 
           {/* 当前选校进度 */}
           <div className="mb-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
+            <p className="text-sm font-semibold text-gray-700 mb-1">
+              Current Round: {users.length === 0 ? 'Loading…' : currentRound}
+            </p>
             <p className="text-sm font-semibold text-gray-700 mb-2">
               Current Turn: {activeRank != null && activeUser
                 ? `Rank ${activeRank} - ${activeUser.name}`
@@ -148,9 +151,9 @@ const App: React.FC = () => {
                   : '—'}
             </p>
             {sortedUsers.length > 0 && (
-              <div className="overflow-x-auto -mx-1">
+              <div className="overflow-x-auto overflow-y-auto max-h-[10.5rem] -mx-1 border border-gray-200 rounded-lg">
                 <table className="w-full text-xs border-collapse table-fixed">
-                  <thead>
+                  <thead className="sticky top-0 bg-gray-50 z-10">
                     <tr className="border-b border-gray-200 text-gray-600 font-medium">
                       <th className="text-left py-2 px-2">Rank</th>
                       <th className="text-left py-2 px-2">Name</th>
